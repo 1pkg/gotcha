@@ -67,11 +67,17 @@ func rawbyteslice(size int) []byte
 //go:linkname rawruneslice runtime.rawruneslice
 func rawruneslice(size int) []rune
 
-//go:linkname gobytes runtime.gobytes
-func gobytes(size int) []rune
-
 //go:linkname sliceByteToString runtime.slicebytetostring
 func sliceByteToString(buf *tmpBuf, ptr *byte, n int) string
+
+// mulUintptr copied from `internal/math.MulUintptr`
+func mulUintptr(a, b uintptr) (uintptr, bool) {
+	if a|b < 1<<(4*unsafe.Sizeof(uintptr(0))) || a == 0 {
+		return a * b, false
+	}
+	overflow := b > ^uintptr(0)/a
+	return a * b, overflow
+}
 
 func init() {
 	// mallocgc directly
@@ -87,12 +93,17 @@ func init() {
 		trackAlloc(int(tp.size), 1)
 		return mallocgc(tp.size, tp, true)
 	})
-	var gnewArray *monkey.PatchGuard
-	gnewArray = monkey.Patch(newarray, func(tp *tp, n int) unsafe.Pointer {
-		gnewArray.Unpatch()
-		defer gnewArray.Restore()
+	monkey.Patch(newarray, func(tp *tp, n int) unsafe.Pointer {
 		trackAlloc(int(tp.size), n)
-		return newarray(tp, n)
+		if n == 1 {
+			return mallocgc(tp.size, tp, true)
+		}
+		mem, overflow := mulUintptr(tp.size, uintptr(n))
+		// note: check for `mem > maxAlloc` is omitted here
+		if overflow || n < 0 {
+			panic("runtime: allocation size out of range")
+		}
+		return mallocgc(mem, tp, true)
 	})
 	// slice allocs
 	var gmakeSlice, gmakeSliceCopy, ggrowSlice *monkey.PatchGuard
@@ -123,37 +134,33 @@ func init() {
 		return makechan(tp, size)
 	})
 	// string allocs
-	// var grawString, grawBytes, grawRunes, ggoBytes, gSliceBytesString *monkey.PatchGuard
-	// grawString = monkey.Patch(rawstring, func(size int) (string, []byte) {
-	// 	grawString.Unpatch()
-	// 	defer grawString.Restore()
-	// 	// trackAlloc(1, size)
-	// 	return rawstring(size)
-	// })
-	// grawBytes = monkey.Patch(rawbyteslice, func(size int) []byte {
-	// 	grawBytes.Unpatch()
-	// 	defer grawBytes.Restore()
-	// 	// trackAlloc(1, size)
-	// 	return rawbyteslice(size)
-	// })
-	// grawRunes = monkey.Patch(rawruneslice, func(size int) []rune {
-	// 	grawRunes.Unpatch()
-	// 	defer grawRunes.Restore()
-	// 	// trackAlloc(1, size)
-	// 	return rawruneslice(size)
-	// })
-	// ggoBytes = monkey.Patch(gobytes, func(size int) []rune {
-	// 	ggoBytes.Unpatch()
-	// 	defer ggoBytes.Restore()
-	// 	// trackAlloc(1, size)
-	// 	return gobytes(size)
-	// })
-	// gSliceBytesString = monkey.Patch(sliceByteToString, func(buf *tmpBuf, ptr *byte, n int) string {
-	// 	gSliceBytesString.Unpatch()
-	// 	defer gSliceBytesString.Restore()
-	// 	// trackAlloc(1, n)
-	// 	return sliceByteToString(buf, ptr, n)
-	// })
+	// note that we don't patch `runtime.gobytes`
+	// as it seems it's only used by go compiler itself
+	var grawString, grawBytes, grawRunes, gSliceBytesString *monkey.PatchGuard
+	grawString = monkey.Patch(rawstring, func(size int) (string, []byte) {
+		grawString.Unpatch()
+		defer grawString.Restore()
+		trackAlloc(1, size)
+		return rawstring(size)
+	})
+	grawBytes = monkey.Patch(rawbyteslice, func(size int) []byte {
+		grawBytes.Unpatch()
+		defer grawBytes.Restore()
+		trackAlloc(1, size)
+		return rawbyteslice(size)
+	})
+	grawRunes = monkey.Patch(rawruneslice, func(size int) []rune {
+		grawRunes.Unpatch()
+		defer grawRunes.Restore()
+		trackAlloc(1, size)
+		return rawruneslice(size)
+	})
+	gSliceBytesString = monkey.Patch(sliceByteToString, func(buf *tmpBuf, ptr *byte, n int) string {
+		gSliceBytesString.Unpatch()
+		defer gSliceBytesString.Restore()
+		trackAlloc(1, n)
+		return sliceByteToString(buf, ptr, n)
+	})
 }
 
 func main() {
