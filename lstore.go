@@ -20,10 +20,10 @@ func Gotcha(ctx context.Context, gt Tracer, opts ...ContextOpt) {
 	})()
 }
 
-func trackAlloc(bytes, objects uint64) {
+func trackAlloc(bytes, objects int) {
 	if v := gls.Get(glskey); v != nil {
 		if ctx, ok := v.(Context); ok {
-			ctx.Add(bytes, objects)
+			ctx.Add(uint64(bytes), uint64(objects))
 		}
 	}
 }

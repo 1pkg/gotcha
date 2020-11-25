@@ -19,9 +19,7 @@ type Context interface {
 	context.Context
 	String() string
 	Add(bytes, objects uint64)
-	Set(lbytes, lobjects, lcalls uint64)
 	Get() (bytes, objects, calls uint64)
-	Limits() (lbytes, lobjects, lcalls uint64)
 	Check() bool
 }
 
@@ -102,22 +100,10 @@ func (ctx *gotchactx) Add(bytes, objects uint64) {
 	}
 }
 
-func (ctx *gotchactx) Set(lbytes, lobjects, lcalls uint64) {
-	atomic.StoreUint64(&ctx.lbytes, lbytes)
-	atomic.StoreUint64(&ctx.lobjects, lobjects)
-	atomic.StoreUint64(&ctx.lcalls, lcalls)
-}
-
 func (ctx *gotchactx) Get() (bytes, objects, calls uint64) {
 	return atomic.LoadUint64(&ctx.bytes),
 		atomic.LoadUint64(&ctx.objects),
 		atomic.LoadUint64(&ctx.calls)
-}
-
-func (ctx *gotchactx) Limits() (lbytes, lobjects, lcalls uint64) {
-	return atomic.LoadUint64(&ctx.lbytes),
-		atomic.LoadUint64(&ctx.lobjects),
-		atomic.LoadUint64(&ctx.lcalls)
 }
 
 func (ctx *gotchactx) Check() bool {
