@@ -83,8 +83,8 @@ func (ctx *gotchactx) String() string {
 }
 
 func (ctx *gotchactx) Add(bytes, objects uint64) {
-	atomic.StoreUint64(&ctx.bytes, bytes*objects)
-	atomic.StoreUint64(&ctx.objects, objects)
+	atomic.AddUint64(&ctx.bytes, bytes*objects)
+	atomic.AddUint64(&ctx.objects, objects)
 	atomic.AddUint64(&ctx.calls, 1)
 	if ctx.Check() {
 		select {

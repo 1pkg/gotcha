@@ -6,12 +6,7 @@ import (
 	"unsafe"
 
 	"bou.ke/monkey"
-	"github.com/modern-go/gls"
 )
-
-type lskey string
-
-const glskey lskey = "glskey"
 
 // tp from `runtime._type`
 type tp struct {
@@ -46,27 +41,18 @@ func makeslicecopy(tp *tp, tolen int, fromlen int, from unsafe.Pointer) unsafe.P
 //go:linkname growslice runtime.growslice
 func growslice(tp *tp, old slice, cap int) slice
 
-func update(bytes, objects uint64) {
-	if v := gls.Get(glskey); v != nil {
-		if ctx, ok := v.(Context); ok {
-			ctx.Add(bytes, objects)
-			print("DEBUG", "   ", bytes, "   ", objects, "\n")
-		}
-	}
-}
-
 func main() {
 	// mallocgc directly
 	monkey.Patch(newobject, func(tp *tp) unsafe.Pointer {
-		update(uint64(tp.size), 1)
+		trackAlloc(uint64(tp.size), 1)
 		return mallocgc(tp.size, tp, true)
 	})
 	monkey.Patch(reflectUnsafeNew, func(tp *tp) unsafe.Pointer {
-		update(uint64(tp.size), 1)
+		trackAlloc(uint64(tp.size), 1)
 		return mallocgc(tp.size, tp, true)
 	})
 	monkey.Patch(reflectliteUnsafeNew, func(tp *tp) unsafe.Pointer {
-		update(uint64(tp.size), 1)
+		trackAlloc(uint64(tp.size), 1)
 		return mallocgc(tp.size, tp, true)
 	})
 	// slice allocs
@@ -74,25 +60,26 @@ func main() {
 	gmakeSlice = monkey.Patch(makeslice, func(tp *tp, len, cap int) unsafe.Pointer {
 		gmakeSlice.Unpatch()
 		defer gmakeSlice.Restore()
-		update(uint64(tp.size), uint64(cap))
+		trackAlloc(uint64(tp.size), uint64(cap))
 		return makeslice(tp, len, cap)
 	})
 	gmakeSliceCopy = monkey.Patch(makeslicecopy, func(tp *tp, tolen int, fromlen int, from unsafe.Pointer) unsafe.Pointer {
 		gmakeSliceCopy.Unpatch()
 		defer gmakeSliceCopy.Restore()
-		update(uint64(tp.size), uint64(tolen))
+		trackAlloc(uint64(tp.size), uint64(tolen))
 		return makeslicecopy(tp, tolen, fromlen, from)
 	})
 	ggrowSlice = monkey.Patch(growslice, func(tp *tp, old slice, cap int) slice {
 		ggrowSlice.Unpatch()
 		defer ggrowSlice.Restore()
-		update(uint64(tp.size), uint64(cap))
+		trackAlloc(uint64(tp.size), uint64(cap))
 		return growslice(tp, old, cap)
 	})
 
-	gls.WithGls(func() {
-		ctx := NewContext(context.Background(), 100, 10, 10)
-		gls.Set(glskey, ctx)
+	var a []int
+	Gotcha(context.Background(), func(ctx Context) {
+		a = make([]int, 100, 105)
 		print(ctx.String())
-	})()
+	})
+	a[1] = 13
 }
