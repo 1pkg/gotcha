@@ -24,6 +24,15 @@ type slice struct {
 	_ int
 }
 
+//go:linkname newobject runtime.newobject
+func newobject(tp *tp) unsafe.Pointer
+
+//go:linkname reflectUnsafeNew reflect.unsafe_New
+func reflectUnsafeNew(typ *tp) unsafe.Pointer
+
+//go:linkname reflectliteUnsafeNew internal/reflectlite.unsafe_New
+func reflectliteUnsafeNew(typ *tp) unsafe.Pointer
+
 //go:linkname mallocgc runtime.mallocgc
 func mallocgc(size uintptr, tp *tp, needzero bool) unsafe.Pointer
 
@@ -40,12 +49,26 @@ func update(bytes, objects int64) {
 	if v := gls.Get(glskey); v != nil {
 		if ctx, ok := v.(*Context); ok {
 			ctx.add(bytes, objects)
-			print("DEBUG", bytes, "   ", objects, "\n")
+			print("DEBUG", "   ", bytes, "   ", objects, "\n")
 		}
 	}
 }
 
 func main() {
+	// mallocgc directly
+	monkey.Patch(newobject, func(tp *tp) unsafe.Pointer {
+		update(int64(tp.size), 1)
+		return mallocgc(tp.size, tp, true)
+	})
+	monkey.Patch(reflectUnsafeNew, func(tp *tp) unsafe.Pointer {
+		update(int64(tp.size), 1)
+		return mallocgc(tp.size, tp, true)
+	})
+	monkey.Patch(reflectliteUnsafeNew, func(tp *tp) unsafe.Pointer {
+		update(int64(tp.size), 1)
+		return mallocgc(tp.size, tp, true)
+	})
+	// slice allocs
 	var gmakeSlice, gmakeSliceCopy, ggrowSlice *monkey.PatchGuard
 	gmakeSlice = monkey.Patch(makeslice, func(tp *tp, len, cap int) unsafe.Pointer {
 		gmakeSlice.Unpatch()
@@ -65,14 +88,10 @@ func main() {
 		update(int64(tp.size), int64(cap))
 		return growslice(tp, old, cap)
 	})
+
 	gls.WithGls(func() {
 		ctx := &Context{}
 		gls.Set(glskey, ctx)
-		a := make([]int, 5, 5)
-		for i := 0; i < 10; i++ {
-			a = make([]int, 1, 1)
-			a = append(a, 1, 2, 3)
-		}
 		print(ctx.String())
 	})()
 }
