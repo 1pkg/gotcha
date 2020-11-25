@@ -32,14 +32,20 @@ type gotchactx struct {
 	lbytes, lobjects, lcalls uint64
 }
 
-func NewContext(ctx context.Context, lbytes, lobjects, lcalls uint64) Context {
-	return &gotchactx{
-		parent:   ctx,
-		signal:   make(chan struct{}),
-		lbytes:   lbytes,
-		lobjects: lobjects,
-		lcalls:   lcalls,
+func NewContext(parent context.Context, opts ...ContextOpt) Context {
+	ctx := &gotchactx{
+		parent: parent,
+		signal: make(chan struct{}),
 	}
+	opts = append([]ContextOpt{
+		ContextWithLimitBytes(16 * MiB),
+		ContextWithLimitObjects(Mega),
+		ContextWithLimitCalls(Kilo),
+	}, opts...)
+	for _, opt := range opts {
+		opt(ctx)
+	}
+	return ctx
 }
 
 func (ctx *gotchactx) Deadline() (time.Time, bool) {

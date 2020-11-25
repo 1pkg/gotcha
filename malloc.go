@@ -41,7 +41,7 @@ func makeslicecopy(tp *tp, tolen int, fromlen int, from unsafe.Pointer) unsafe.P
 //go:linkname growslice runtime.growslice
 func growslice(tp *tp, old slice, cap int) slice
 
-func main() {
+func init() {
 	// mallocgc directly
 	monkey.Patch(newobject, func(tp *tp) unsafe.Pointer {
 		trackAlloc(uint64(tp.size), 1)
@@ -75,7 +75,9 @@ func main() {
 		trackAlloc(uint64(tp.size), uint64(cap))
 		return growslice(tp, old, cap)
 	})
+}
 
+func main() {
 	var a []int
 	Gotcha(context.Background(), func(ctx Context) {
 		a = make([]int, 100, 105)
