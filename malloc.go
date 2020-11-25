@@ -2,6 +2,7 @@ package main
 
 import (
 	"C"
+	"context"
 	"unsafe"
 
 	"bou.ke/monkey"
@@ -45,10 +46,10 @@ func makeslicecopy(tp *tp, tolen int, fromlen int, from unsafe.Pointer) unsafe.P
 //go:linkname growslice runtime.growslice
 func growslice(tp *tp, old slice, cap int) slice
 
-func update(bytes, objects int64) {
+func update(bytes, objects uint64) {
 	if v := gls.Get(glskey); v != nil {
-		if ctx, ok := v.(*Context); ok {
-			ctx.add(bytes, objects)
+		if ctx, ok := v.(Context); ok {
+			ctx.Add(bytes, objects)
 			print("DEBUG", "   ", bytes, "   ", objects, "\n")
 		}
 	}
@@ -57,15 +58,15 @@ func update(bytes, objects int64) {
 func main() {
 	// mallocgc directly
 	monkey.Patch(newobject, func(tp *tp) unsafe.Pointer {
-		update(int64(tp.size), 1)
+		update(uint64(tp.size), 1)
 		return mallocgc(tp.size, tp, true)
 	})
 	monkey.Patch(reflectUnsafeNew, func(tp *tp) unsafe.Pointer {
-		update(int64(tp.size), 1)
+		update(uint64(tp.size), 1)
 		return mallocgc(tp.size, tp, true)
 	})
 	monkey.Patch(reflectliteUnsafeNew, func(tp *tp) unsafe.Pointer {
-		update(int64(tp.size), 1)
+		update(uint64(tp.size), 1)
 		return mallocgc(tp.size, tp, true)
 	})
 	// slice allocs
@@ -73,24 +74,24 @@ func main() {
 	gmakeSlice = monkey.Patch(makeslice, func(tp *tp, len, cap int) unsafe.Pointer {
 		gmakeSlice.Unpatch()
 		defer gmakeSlice.Restore()
-		update(int64(tp.size), int64(cap))
+		update(uint64(tp.size), uint64(cap))
 		return makeslice(tp, len, cap)
 	})
 	gmakeSliceCopy = monkey.Patch(makeslicecopy, func(tp *tp, tolen int, fromlen int, from unsafe.Pointer) unsafe.Pointer {
 		gmakeSliceCopy.Unpatch()
 		defer gmakeSliceCopy.Restore()
-		update(int64(tp.size), int64(tolen))
+		update(uint64(tp.size), uint64(tolen))
 		return makeslicecopy(tp, tolen, fromlen, from)
 	})
 	ggrowSlice = monkey.Patch(growslice, func(tp *tp, old slice, cap int) slice {
 		ggrowSlice.Unpatch()
 		defer ggrowSlice.Restore()
-		update(int64(tp.size), int64(cap))
+		update(uint64(tp.size), uint64(cap))
 		return growslice(tp, old, cap)
 	})
 
 	gls.WithGls(func() {
-		ctx := &Context{}
+		ctx := NewContext(context.Background(), 100, 10, 10)
 		gls.Set(glskey, ctx)
 		print(ctx.String())
 	})()
