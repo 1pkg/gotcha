@@ -1,8 +1,7 @@
-package main
+package gotcha
 
 import (
 	"C"
-	"context"
 	"unsafe"
 
 	"bou.ke/monkey"
@@ -161,13 +160,4 @@ func init() {
 		trackAlloc(1, n)
 		return sliceByteToString(buf, ptr, n)
 	})
-}
-
-func main() {
-	var mp map[string]int
-	Gotcha(context.Background(), func(ctx Context) {
-		mp = make(map[string]int, 100)
-		print(ctx.String())
-	})
-	print(mp)
 }

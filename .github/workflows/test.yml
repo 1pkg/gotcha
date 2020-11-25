@@ -1,0 +1,22 @@
+name: test
+on: [push, pull_request]
+jobs:
+  test:
+    strategy:
+      matrix:
+        go-version: [1.15.x]
+        platform: [ubuntu-latest]
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - name: setup
+        uses: actions/setup-go@v2
+        with:
+          go-version: ${{ matrix.go-version }}
+      - name: checkout
+        uses: actions/checkout@v2
+      - name: test
+        uses: nick-invision/retry@v1
+        with:
+          max_attempts: 3
+          timeout_minutes: 10
+          command: go test -mod=vendor -v -race -count=1 -coverprofile test.cover ./...

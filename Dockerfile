@@ -4,6 +4,5 @@ RUN mkdir -p $GOPATH/src/github.com/1pkg/gotcha
 WORKDIR $GOPATH/src/github.com/1pkg/gotcha
 ADD ./* ./
 ADD ./vendor ./vendor
-RUN go build -mod=vendor -o /var/gotcha
 
-CMD ["/var/gotcha"]
+CMD ["go", "test", "-mod=vendor", "-v", "-race", "-count=1", "-coverprofile", "test.cover", "./..."]
