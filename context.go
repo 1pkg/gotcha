@@ -15,26 +15,28 @@ func (err ContextLimitsExceeded) Error() string {
 	return fmt.Sprintf("context limits have been exceeded %q", err.Context)
 }
 
+type Tracker interface {
+	Add(bytes, objects, calls uint64)
+	Get() (bytes, objects, calls uint64)
+	Limit() (lbytes, lobjects, lcalls uint64)
+	Check() bool
+	Reset()
+}
+
 type Context interface {
 	context.Context
 	String() string
-	Add(bytes, objects uint64)
-	Get() (bytes, objects, calls uint64)
-	Check() bool
+	Tracker
 }
 
 type gotchactx struct {
 	parent                   context.Context
-	signal                   chan struct{}
 	bytes, objects, calls    uint64
 	lbytes, lobjects, lcalls uint64
 }
 
 func NewContext(parent context.Context, opts ...ContextOpt) Context {
-	ctx := &gotchactx{
-		parent: parent,
-		signal: make(chan struct{}),
-	}
+	ctx := &gotchactx{parent: parent}
 	opts = append([]ContextOpt{
 		ContextWithLimitBytes(16 * MiB),
 		ContextWithLimitObjects(Mega),
@@ -52,12 +54,16 @@ func (ctx *gotchactx) Deadline() (time.Time, bool) {
 
 func (ctx *gotchactx) Done() <-chan struct{} {
 	ch := make(chan struct{})
+	t := time.NewTicker(time.Millisecond)
 	go func() {
 		select {
 		case <-ctx.parent.Done():
 			close(ch)
-		case <-ctx.signal:
-			close(ch)
+		case <-t.C:
+			if ctx.Check() {
+				close(ch)
+				t.Stop()
+			}
 		}
 	}()
 	return ch
@@ -86,18 +92,10 @@ func (ctx *gotchactx) String() string {
 	)
 }
 
-func (ctx *gotchactx) Add(bytes, objects uint64) {
+func (ctx *gotchactx) Add(bytes, objects, calls uint64) {
 	atomic.AddUint64(&ctx.bytes, bytes*objects)
 	atomic.AddUint64(&ctx.objects, objects)
-	atomic.AddUint64(&ctx.calls, 1)
-	if ctx.Check() {
-		select {
-		case <-ctx.signal:
-			return
-		default:
-			close(ctx.signal)
-		}
-	}
+	atomic.AddUint64(&ctx.calls, calls)
 }
 
 func (ctx *gotchactx) Get() (bytes, objects, calls uint64) {
@@ -106,8 +104,20 @@ func (ctx *gotchactx) Get() (bytes, objects, calls uint64) {
 		atomic.LoadUint64(&ctx.calls)
 }
 
+func (ctx *gotchactx) Limit() (lbytes, lobjects, lcalls uint64) {
+	return atomic.LoadUint64(&ctx.lbytes),
+		atomic.LoadUint64(&ctx.lobjects),
+		atomic.LoadUint64(&ctx.lcalls)
+}
+
 func (ctx *gotchactx) Check() bool {
 	return atomic.LoadUint64(&ctx.bytes) > atomic.LoadUint64(&ctx.lbytes) ||
 		atomic.LoadUint64(&ctx.bytes) > atomic.LoadUint64(&ctx.lobjects) ||
 		atomic.LoadUint64(&ctx.calls) > atomic.LoadUint64(&ctx.lcalls)
+}
+
+func (ctx *gotchactx) Reset() {
+	atomic.StoreUint64(&ctx.bytes, 0)
+	atomic.StoreUint64(&ctx.objects, 0)
+	atomic.StoreUint64(&ctx.calls, 0)
 }
