@@ -1,6 +1,8 @@
 # bou.ke/monkey v1.0.2
 ## explicit
 bou.ke/monkey
+# github.com/davecgh/go-spew v1.1.0
+github.com/davecgh/go-spew/spew
 # github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd
 ## explicit
 github.com/modern-go/concurrent
@@ -10,3 +12,11 @@ github.com/modern-go/gls
 # github.com/modern-go/reflect2 v1.0.1
 ## explicit
 github.com/modern-go/reflect2
+# github.com/pmezard/go-difflib v1.0.0
+github.com/pmezard/go-difflib/difflib
+# github.com/stretchr/testify v1.6.1
+## explicit
+github.com/stretchr/testify/assert
+github.com/stretchr/testify/require
+# gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c
+gopkg.in/yaml.v3
