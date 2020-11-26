@@ -12,18 +12,18 @@ const glskey lskey = "glskey"
 
 type Tracer func(Context)
 
-func Gotcha(ctx context.Context, gt Tracer, opts ...ContextOpt) {
+func Trace(ctx context.Context, t Tracer, opts ...ContextOpt) {
 	gls.WithGls(func() {
 		ctx := NewContext(context.Background(), opts...)
 		gls.Set(glskey, ctx)
-		gt(ctx)
+		t(ctx)
 	})()
 }
 
 func trackAlloc(bytes, objects int) {
 	if v := gls.Get(glskey); v != nil {
 		if ctx, ok := v.(Tracker); ok {
-			ctx.Add(uint64(bytes), uint64(objects), 1)
+			ctx.Add(int64(bytes), int64(objects), 1)
 		}
 	}
 }
