@@ -2,7 +2,6 @@ package gotcha
 
 import (
 	"context"
-	"sync"
 
 	"github.com/modern-go/gls"
 )
@@ -14,23 +13,11 @@ const glskey lskey = "glskey"
 type Tracer func(Context)
 
 func Trace(ctx context.Context, t Tracer, opts ...ContextOpt) {
-	gls.WithEmptyGls(func() {
+	gls.WithGls(func() {
 		ctx := NewContext(ctx, opts...)
 		gls.Set(glskey, ctx)
 		t(ctx)
 	})()
-}
-
-func GoTrace(ctx context.Context, wg *sync.WaitGroup, t Tracer, opts ...ContextOpt) {
-	if wg != nil {
-		wg.Add(1)
-	}
-	go func() {
-		if wg != nil {
-			defer wg.Done()
-		}
-		Trace(ctx, t, opts...)
-	}()
 }
 
 func trackAlloc(bytes, objects int) {

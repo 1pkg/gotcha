@@ -211,3 +211,44 @@ func TestTraceTypes(t *testing.T) {
 		})
 	})
 }
+
+func TestTraceHierarchy(t *testing.T) {
+	Trace(context.Background(), func(ctx Context) {
+		var v1, v2, v3 []int64
+		Trace(ctx, func(ctx Context) {
+			v1 = make([]int64, 5, 10)
+			b, o, c := ctx.Get()
+			require.GreaterOrEqual(t, b, int64(80))
+			require.GreaterOrEqual(t, o, int64(10))
+			require.GreaterOrEqual(t, c, int64(1))
+		})
+		Trace(ctx, func(ctx Context) {
+			v2 = make([]int64, 5, 20)
+			b, o, c := ctx.Get()
+			require.GreaterOrEqual(t, b, int64(160))
+			require.GreaterOrEqual(t, o, int64(20))
+			require.GreaterOrEqual(t, c, int64(1))
+			Trace(ctx, func(ctx Context) {
+				v3 = make([]int64, 5, 10)
+				b, o, c := ctx.Get()
+				require.GreaterOrEqual(t, b, int64(80))
+				require.GreaterOrEqual(t, o, int64(10))
+				require.GreaterOrEqual(t, c, int64(1))
+			})
+			Trace(ctx, func(ctx Context) {
+				v2 = make([]int64, 5, 20)
+				b, o, c := ctx.Get()
+				require.GreaterOrEqual(t, b, int64(160))
+				require.GreaterOrEqual(t, o, int64(20))
+				require.GreaterOrEqual(t, c, int64(1))
+			})
+		})
+		v1[0] = 0
+		v2[0] = 0
+		v3[0] = 0
+		b, o, c := ctx.Get()
+		require.GreaterOrEqual(t, b, int64(480))
+		require.GreaterOrEqual(t, o, int64(60))
+		require.GreaterOrEqual(t, c, int64(4))
+	})
+}
