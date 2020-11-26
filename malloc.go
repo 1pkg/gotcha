@@ -30,6 +30,9 @@ type hchan struct{}
 // tmpBuf from `runtime.tmpBuf`
 type tmpBuf [32]byte
 
+//go:linkname mallocgc runtime.mallocgc
+func mallocgc(size uintptr, tp *tp, needzero bool) unsafe.Pointer
+
 //go:linkname newobject runtime.newobject
 func newobject(tp *tp) unsafe.Pointer
 
@@ -41,9 +44,6 @@ func reflectliteUnsafeNew(tp *tp) unsafe.Pointer
 
 //go:linkname newarray runtime.newarray
 func newarray(typ *tp, n int) unsafe.Pointer
-
-//go:linkname mallocgc runtime.mallocgc
-func mallocgc(size uintptr, tp *tp, needzero bool) unsafe.Pointer
 
 //go:linkname makeslice runtime.makeslice
 func makeslice(tp *tp, len, cap int) unsafe.Pointer

@@ -96,8 +96,8 @@ func (ctx *gotchactx) Add(bytes, objects, calls int64) {
 	atomic.AddInt64(&ctx.bytes, bytes*objects)
 	atomic.AddInt64(&ctx.objects, objects)
 	atomic.AddInt64(&ctx.calls, calls)
-	if ctx, ok := ctx.parent.(Tracker); ok {
-		ctx.Add(bytes, objects, calls)
+	if pctx, ok := ctx.parent.(Tracker); ok {
+		pctx.Add(bytes, objects, calls)
 	}
 }
 
@@ -123,8 +123,8 @@ func (ctx *gotchactx) Exceeded() bool {
 	if l := atomic.LoadInt64(&ctx.lcalls); l != Infinity && l < atomic.LoadInt64(&ctx.calls) {
 		return true
 	}
-	if ctx, ok := ctx.parent.(Tracker); ok {
-		return ctx.Exceeded()
+	if pctx, ok := ctx.parent.(Tracker); ok {
+		return pctx.Exceeded()
 	}
 	return false
 }
