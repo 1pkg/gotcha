@@ -95,7 +95,7 @@ func mulUintptr(a, b uintptr) (uintptr, bool) {
 // untracked allocation for code like `vt, ok := var.(type)`.
 // Note that `runtime.gobytes` is not patched as well as it seems it's only used by go compiler itself.
 // Note that only functions from `mallocgc` family are patched, but runtime has much more allocation tricks
-// that won't be traced by gotcha like direct `malloc` sys calls and etc.
+// that won't be traced by gotcha, like direct `malloc` sys calls, etc.
 func init() {
 	// mallocgc directly
 	monkey.Patch(newobject, func(tp *tp) unsafe.Pointer {
