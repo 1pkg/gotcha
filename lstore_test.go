@@ -19,7 +19,7 @@ func TestTraceTypes(t *testing.T) {
 			for i := 0; i < 1000; i++ {
 				_ = i - 1
 			}
-			b, o, c := ctx.Get()
+			b, o, c := ctx.Used()
 			require.Equal(t, int64(0), b)
 			require.Equal(t, int64(0), o)
 			require.Equal(t, int64(0), c)
@@ -36,7 +36,7 @@ func TestTraceTypes(t *testing.T) {
 			}
 			v.a = 0
 			v.b = 0
-			b, o, c := ctx.Get()
+			b, o, c := ctx.Used()
 			require.InEpsilon(t, int64(16000), b, epsAlloc)
 			require.InEpsilon(t, int64(1000), o, epsAlloc)
 			require.GreaterOrEqual(t, c, int64(1000))
@@ -53,7 +53,7 @@ func TestTraceTypes(t *testing.T) {
 			}
 			v.a = 0
 			v.b = 0
-			b, o, c := ctx.Get()
+			b, o, c := ctx.Used()
 			require.InEpsilon(t, int64(16000), b, epsAlloc)
 			require.InEpsilon(t, int64(1000), o, epsAlloc)
 			require.GreaterOrEqual(t, c, int64(1000))
@@ -72,7 +72,7 @@ func TestTraceTypes(t *testing.T) {
 			}
 			v.a = 0
 			v.b = 0
-			b, o, c := ctx.Get()
+			b, o, c := ctx.Used()
 			require.InEpsilon(t, int64(1600), b, epsAlloc)
 			require.InEpsilon(t, int64(100), o, epsAlloc)
 			require.GreaterOrEqual(t, c, int64(100))
@@ -85,7 +85,7 @@ func TestTraceTypes(t *testing.T) {
 				v = make([]int64, 1, 10)
 			}
 			v[0] = 0
-			b, o, c := ctx.Get()
+			b, o, c := ctx.Used()
 			require.InEpsilon(t, int64(80000), b, epsAlloc)
 			require.InEpsilon(t, int64(10000), o, epsAlloc)
 			require.GreaterOrEqual(t, c, int64(1000))
@@ -100,7 +100,7 @@ func TestTraceTypes(t *testing.T) {
 				copy(v, vc)
 			}
 			v[0] = 0
-			b, o, c := ctx.Get()
+			b, o, c := ctx.Used()
 			require.InEpsilon(t, int64(80000), b, epsAlloc)
 			require.InEpsilon(t, int64(10000), o, epsAlloc)
 			require.GreaterOrEqual(t, c, int64(1000))
@@ -114,7 +114,7 @@ func TestTraceTypes(t *testing.T) {
 				v = append(v, 1)
 			}
 			v[0] = 0
-			b, o, c := ctx.Get()
+			b, o, c := ctx.Used()
 			require.InEpsilon(t, int64(160000), b, epsAlloc)
 			require.InEpsilon(t, int64(20000), o, epsAlloc)
 			require.GreaterOrEqual(t, c, int64(2000))
@@ -127,7 +127,7 @@ func TestTraceTypes(t *testing.T) {
 				v = make(map[string]int32, 15)
 			}
 			v[""] = 0
-			b, o, c := ctx.Get()
+			b, o, c := ctx.Used()
 			require.GreaterOrEqual(t, b, int64(6000))
 			require.GreaterOrEqual(t, o, int64(100))
 			require.GreaterOrEqual(t, c, int64(100))
@@ -140,7 +140,7 @@ func TestTraceTypes(t *testing.T) {
 				v = make(chan [12]byte, 10)
 			}
 			close(v)
-			b, o, c := ctx.Get()
+			b, o, c := ctx.Used()
 			require.GreaterOrEqual(t, b, int64(1200))
 			require.GreaterOrEqual(t, o, int64(1000))
 			require.GreaterOrEqual(t, c, int64(100))
@@ -154,7 +154,7 @@ func TestTraceTypes(t *testing.T) {
 				v = []byte(cs)
 			}
 			_ = len(v)
-			b, o, c := ctx.Get()
+			b, o, c := ctx.Used()
 			require.InEpsilon(t, int64(22000), b, epsAlloc)
 			require.InEpsilon(t, int64(11000), o, epsAlloc)
 			require.GreaterOrEqual(t, c, int64(1000))
@@ -168,7 +168,7 @@ func TestTraceTypes(t *testing.T) {
 				v = []rune(cs)
 			}
 			_ = len(v)
-			b, o, c := ctx.Get()
+			b, o, c := ctx.Used()
 			require.InEpsilon(t, int64(22000), b, epsAlloc)
 			require.InEpsilon(t, int64(11000), o, epsAlloc)
 			require.GreaterOrEqual(t, c, int64(1000))
@@ -182,7 +182,7 @@ func TestTraceTypes(t *testing.T) {
 				v = string(cb)
 			}
 			_ = len(v)
-			b, o, c := ctx.Get()
+			b, o, c := ctx.Used()
 			require.InEpsilon(t, int64(22000), b, epsAlloc)
 			require.InEpsilon(t, int64(11000), o, epsAlloc)
 			require.GreaterOrEqual(t, c, int64(1000))
@@ -204,7 +204,7 @@ func TestTraceTypes(t *testing.T) {
 				}
 			}
 			_ = v.self
-			b, o, c := ctx.Get()
+			b, o, c := ctx.Used()
 			require.GreaterOrEqual(t, b, int64(1400))
 			require.GreaterOrEqual(t, o, int64(100))
 			require.GreaterOrEqual(t, c, int64(100))
@@ -217,27 +217,27 @@ func TestTraceHierarchy(t *testing.T) {
 		var v1, v2, v3 []int64
 		Trace(ctx, func(ctx Context) {
 			v1 = make([]int64, 5, 10)
-			b, o, c := ctx.Get()
+			b, o, c := ctx.Used()
 			require.GreaterOrEqual(t, b, int64(80))
 			require.GreaterOrEqual(t, o, int64(10))
 			require.GreaterOrEqual(t, c, int64(1))
 		})
 		Trace(ctx, func(ctx Context) {
 			v2 = make([]int64, 5, 20)
-			b, o, c := ctx.Get()
+			b, o, c := ctx.Used()
 			require.GreaterOrEqual(t, b, int64(160))
 			require.GreaterOrEqual(t, o, int64(20))
 			require.GreaterOrEqual(t, c, int64(1))
 			Trace(ctx, func(ctx Context) {
 				v3 = make([]int64, 5, 10)
-				b, o, c := ctx.Get()
+				b, o, c := ctx.Used()
 				require.GreaterOrEqual(t, b, int64(80))
 				require.GreaterOrEqual(t, o, int64(10))
 				require.GreaterOrEqual(t, c, int64(1))
 			})
 			Trace(ctx, func(ctx Context) {
 				v2 = make([]int64, 5, 20)
-				b, o, c := ctx.Get()
+				b, o, c := ctx.Used()
 				require.GreaterOrEqual(t, b, int64(160))
 				require.GreaterOrEqual(t, o, int64(20))
 				require.GreaterOrEqual(t, c, int64(1))
@@ -246,7 +246,7 @@ func TestTraceHierarchy(t *testing.T) {
 		v1[0] = 0
 		v2[0] = 0
 		v3[0] = 0
-		b, o, c := ctx.Get()
+		b, o, c := ctx.Used()
 		require.GreaterOrEqual(t, b, int64(480))
 		require.GreaterOrEqual(t, o, int64(60))
 		require.GreaterOrEqual(t, c, int64(4))

@@ -17,8 +17,9 @@ func (err ContextLimitsExceeded) Error() string {
 
 type Tracker interface {
 	Add(bytes, objects, calls int64)
-	Get() (bytes, objects, calls int64)
-	Limit() (lbytes, lobjects, lcalls int64)
+	Used() (bytes, objects, calls int64)
+	Limits() (lbytes, lobjects, lcalls int64)
+	Remains() (rbytes, robjects, rcalls int64)
 	Exceeded() bool
 	Reset()
 }
@@ -54,15 +55,29 @@ func (ctx *gotchactx) Deadline() (time.Time, bool) {
 
 func (ctx *gotchactx) Done() <-chan struct{} {
 	ch := make(chan struct{})
+	if ctx.Exceeded() {
+		close(ch)
+		return ch
+	}
+	select {
+	case <-ctx.parent.Done():
+		close(ch)
+		return ch
+	default:
+	}
+	// parent context pooling is the simplest solution here
 	t := time.NewTicker(time.Millisecond)
 	go func() {
-		select {
-		case <-ctx.parent.Done():
-			close(ch)
-		case <-t.C:
-			if ctx.Exceeded() {
-				close(ch)
-				t.Stop()
+		defer t.Stop()
+		defer close(ch)
+		for {
+			select {
+			case <-ctx.parent.Done():
+				return
+			case <-t.C:
+				if ctx.Exceeded() {
+					return
+				}
 			}
 		}
 	}()
@@ -101,26 +116,72 @@ func (ctx *gotchactx) Add(bytes, objects, calls int64) {
 	}
 }
 
-func (ctx *gotchactx) Get() (bytes, objects, calls int64) {
+func (ctx *gotchactx) Used() (bytes, objects, calls int64) {
 	return atomic.LoadInt64(&ctx.bytes),
 		atomic.LoadInt64(&ctx.objects),
 		atomic.LoadInt64(&ctx.calls)
 }
 
-func (ctx *gotchactx) Limit() (lbytes, lobjects, lcalls int64) {
+func (ctx *gotchactx) Limits() (lbytes, lobjects, lcalls int64) {
 	return atomic.LoadInt64(&ctx.lbytes),
 		atomic.LoadInt64(&ctx.lobjects),
 		atomic.LoadInt64(&ctx.lcalls)
 }
 
+func (ctx *gotchactx) Remains() (rbytes, robjects, rcalls int64) {
+	// calculate bytes remains
+	bytes := atomic.LoadInt64(&ctx.bytes)
+	lbytes := atomic.LoadInt64(&ctx.lbytes)
+	switch {
+	case lbytes <= Infinity:
+		rbytes = Infinity
+		if pctx, ok := ctx.parent.(Tracker); ok {
+			rbytes, _, _ = pctx.Remains()
+		}
+	case lbytes > bytes:
+		rbytes = lbytes - bytes
+	default:
+		rbytes = 0
+	}
+	// calculate objects remains
+	objects := atomic.LoadInt64(&ctx.objects)
+	lobjects := atomic.LoadInt64(&ctx.lobjects)
+	switch {
+	case lobjects <= Infinity:
+		robjects = Infinity
+		if pctx, ok := ctx.parent.(Tracker); ok {
+			_, robjects, _ = pctx.Remains()
+		}
+	case lobjects > objects:
+		robjects = lobjects - objects
+	default:
+		robjects = 0
+	}
+	// calculate calls remains
+	calls := atomic.LoadInt64(&ctx.calls)
+	lcalls := atomic.LoadInt64(&ctx.lcalls)
+	switch {
+	case lcalls <= Infinity:
+		rcalls = Infinity
+		if pctx, ok := ctx.parent.(Tracker); ok {
+			_, _, rcalls = pctx.Remains()
+		}
+	case lcalls > calls:
+		rcalls = lcalls - calls
+	default:
+		rcalls = 0
+	}
+	return
+}
+
 func (ctx *gotchactx) Exceeded() bool {
-	if l := atomic.LoadInt64(&ctx.lbytes); l != Infinity && l < atomic.LoadInt64(&ctx.bytes) {
+	if l := atomic.LoadInt64(&ctx.lbytes); l > Infinity && l < atomic.LoadInt64(&ctx.bytes) {
 		return true
 	}
-	if l := atomic.LoadInt64(&ctx.lobjects); l != Infinity && l < atomic.LoadInt64(&ctx.objects) {
+	if l := atomic.LoadInt64(&ctx.lobjects); l > Infinity && l < atomic.LoadInt64(&ctx.objects) {
 		return true
 	}
-	if l := atomic.LoadInt64(&ctx.lcalls); l != Infinity && l < atomic.LoadInt64(&ctx.calls) {
+	if l := atomic.LoadInt64(&ctx.lcalls); l > Infinity && l < atomic.LoadInt64(&ctx.calls) {
 		return true
 	}
 	if pctx, ok := ctx.parent.(Tracker); ok {
