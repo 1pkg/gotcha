@@ -47,20 +47,25 @@ const (
 	Infinity       = -1
 )
 
+// ContextOpt defines gotcha context limit options
+// that could be applied to gotchactx.
 type ContextOpt func(*gotchactx)
 
+// ContextWithLimitBytes defines allocation limit bytes gotcha context option.
 func ContextWithLimitBytes(lbytes int64) ContextOpt {
 	return func(ctx *gotchactx) {
 		atomic.StoreInt64(&ctx.lbytes, lbytes)
 	}
 }
 
+// ContextWithLimitObjects defines allocation limit objects gotcha context option.
 func ContextWithLimitObjects(lobjects int64) ContextOpt {
 	return func(ctx *gotchactx) {
 		atomic.StoreInt64(&ctx.lobjects, lobjects)
 	}
 }
 
+// ContextWithLimitCalls defines allocation limit calls gotcha context option.
 func ContextWithLimitCalls(lcalls int64) ContextOpt {
 	return func(ctx *gotchactx) {
 		atomic.StoreInt64(&ctx.lcalls, lcalls)

@@ -7,6 +7,7 @@ import (
 	"time"
 )
 
+// ContextLimitsExceeded defines error type for context limit exceeded.
 type ContextLimitsExceeded struct {
 	Context Context
 }
@@ -15,6 +16,9 @@ func (err ContextLimitsExceeded) Error() string {
 	return fmt.Sprintf("context limits have been exceeded %q", err.Context)
 }
 
+// Tracker defines memory limit tracker type
+// that is capble to track bytes, objects and calls allocations
+// update, reset and compare them against provided limits.
 type Tracker interface {
 	Add(bytes, objects, calls int64)
 	Used() (bytes, objects, calls int64)
@@ -24,18 +28,32 @@ type Tracker interface {
 	Reset()
 }
 
+// Context defines gotcha context type
+// which is union between `context.Context` and `Tracker`
+// that additionally could be stringified.
 type Context interface {
 	context.Context
 	String() string
 	Tracker
 }
 
+// gotchactx is gotcha context implementation
+// that carries underlying parent `context.Context`.
 type gotchactx struct {
 	parent                   context.Context
 	bytes, objects, calls    int64
 	lbytes, lobjects, lcalls int64
 }
 
+// NewContext creates new gotcha context instance
+// from provided parent context and list of context limit options.
+// By default next limits are used:
+// - bytes: 64 * MiB
+// - objects: Infinity
+// - calls: Infinity
+// Note that if parent context is gotcha context
+// then Add, Remains and Exceeded will also target parent context as well
+// which is useful if nested tracking is required.
 func NewContext(parent context.Context, opts ...ContextOpt) Context {
 	ctx := &gotchactx{parent: parent}
 	opts = append([]ContextOpt{
@@ -55,6 +73,7 @@ func (ctx *gotchactx) Deadline() (time.Time, bool) {
 
 func (ctx *gotchactx) Done() <-chan struct{} {
 	ch := make(chan struct{})
+	// first try direct checks
 	if ctx.Exceeded() {
 		close(ch)
 		return ch
@@ -65,6 +84,7 @@ func (ctx *gotchactx) Done() <-chan struct{} {
 		return ch
 	default:
 	}
+	// if direct checks didn't work then
 	// parent context pooling is the simplest solution here
 	t := time.NewTicker(time.Millisecond)
 	go func() {
