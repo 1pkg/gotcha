@@ -3,6 +3,7 @@ package gotcha
 import (
 	"context"
 	"reflect"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -242,13 +243,24 @@ func TestTraceHierarchy(t *testing.T) {
 				require.GreaterOrEqual(t, o, int64(20))
 				require.GreaterOrEqual(t, c, int64(1))
 			})
+			var wg sync.WaitGroup
+			wg.Add(1)
+			go Trace(ctx, func(ctx Context) {
+				v2 = make([]int64, 5, 20)
+				b, o, c := ctx.Used()
+				require.GreaterOrEqual(t, b, int64(160))
+				require.GreaterOrEqual(t, o, int64(20))
+				require.GreaterOrEqual(t, c, int64(1))
+				wg.Done()
+			})
+			wg.Wait()
 		})
 		v1[0] = 0
 		v2[0] = 0
 		v3[0] = 0
 		b, o, c := ctx.Used()
-		require.GreaterOrEqual(t, b, int64(480))
-		require.GreaterOrEqual(t, o, int64(60))
-		require.GreaterOrEqual(t, c, int64(4))
+		require.GreaterOrEqual(t, b, int64(640))
+		require.GreaterOrEqual(t, o, int64(80))
+		require.GreaterOrEqual(t, c, int64(5))
 	})
 }

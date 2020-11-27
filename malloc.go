@@ -51,6 +51,7 @@ func makeslice(tp *tp, len, cap int) unsafe.Pointer
 //go:linkname makeslicecopy runtime.makeslicecopy
 func makeslicecopy(tp *tp, tolen int, fromlen int, from unsafe.Pointer) unsafe.Pointer
 
+//nolint
 //go:linkname growslice runtime.growslice
 func growslice(tp *tp, old slice, cap int) slice
 
@@ -105,7 +106,7 @@ func init() {
 		return mallocgc(mem, tp, true)
 	})
 	// slice allocs
-	var gmakeSlice, gmakeSliceCopy, ggrowSlice *monkey.PatchGuard
+	var gmakeSlice, gmakeSliceCopy *monkey.PatchGuard
 	gmakeSlice = monkey.Patch(makeslice, func(tp *tp, len, cap int) unsafe.Pointer {
 		gmakeSlice.Unpatch()
 		defer gmakeSlice.Restore()
@@ -118,12 +119,13 @@ func init() {
 		trackAlloc(int(tp.size), tolen)
 		return makeslicecopy(tp, tolen, fromlen, from)
 	})
-	ggrowSlice = monkey.Patch(growslice, func(tp *tp, old slice, cap int) slice {
-		ggrowSlice.Unpatch()
-		defer ggrowSlice.Restore()
-		trackAlloc(int(tp.size), cap)
-		return growslice(tp, old, cap)
-	})
+	// var ggrowSlice *monkey.PatchGuard
+	// ggrowSlice = monkey.Patch(growslice, func(tp *tp, old slice, cap int) slice {
+	// 	ggrowSlice.Unpatch()
+	// 	defer ggrowSlice.Restore()
+	// 	trackAlloc(int(tp.size), cap)
+	// 	return growslice(tp, old, cap)
+	// })
 	// chan allocs
 	var gmakeChan *monkey.PatchGuard
 	gmakeChan = monkey.Patch(makechan, func(tp *chantype, size int) *hchan {
