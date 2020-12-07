@@ -9,76 +9,11 @@ import (
 
 // tp from `runtime._type`
 type tp struct {
-	size    uintptr
-	ptrdata uintptr
+	size uintptr
 }
-
-// chantype from `runtime.chantype`
-type chantype struct {
-	tp tp
-}
-
-// slice from `runtime.slice`
-type slice struct {
-	_ unsafe.Pointer
-	_ int
-	_ int
-}
-
-// hchan from `runtime.chan`
-type hchan struct{}
-
-// tmpBuf from `runtime.tmpBuf`
-type tmpBuf [32]byte
 
 //go:linkname mallocgc runtime.mallocgc
 func mallocgc(size uintptr, tp *tp, needzero bool) unsafe.Pointer
-
-//go:linkname newobject runtime.newobject
-func newobject(tp *tp) unsafe.Pointer
-
-//go:linkname reflectUnsafeNew reflect.unsafe_New
-func reflectUnsafeNew(tp *tp) unsafe.Pointer
-
-//go:linkname reflectliteUnsafeNew internal/reflectlite.unsafe_New
-func reflectliteUnsafeNew(tp *tp) unsafe.Pointer
-
-//go:linkname newarray runtime.newarray
-func newarray(typ *tp, n int) unsafe.Pointer
-
-//go:linkname makeslice runtime.makeslice
-func makeslice(tp *tp, len, cap int) unsafe.Pointer
-
-//go:linkname makeslicecopy runtime.makeslicecopy
-func makeslicecopy(tp *tp, tolen int, fromlen int, from unsafe.Pointer) unsafe.Pointer
-
-//nolint
-//go:linkname growslice runtime.growslice
-func growslice(tp *tp, old slice, cap int) slice
-
-//go:linkname makechan runtime.makechan
-func makechan(tp *chantype, size int) *hchan
-
-//go:linkname rawstring runtime.rawstring
-func rawstring(size int) (string, []byte)
-
-//go:linkname rawbyteslice runtime.rawbyteslice
-func rawbyteslice(size int) []byte
-
-//go:linkname rawruneslice runtime.rawruneslice
-func rawruneslice(size int) []rune
-
-//go:linkname sliceByteToString runtime.slicebytetostring
-func sliceByteToString(buf *tmpBuf, ptr *byte, n int) string
-
-// mulUintptr copied from `internal/math.MulUintptr`
-func mulUintptr(a, b uintptr) (uintptr, bool) {
-	if a|b < 1<<(4*unsafe.Sizeof(uintptr(0))) || a == 0 {
-		return a * b, false
-	}
-	overflow := b > ^uintptr(0)/a
-	return a * b, overflow
-}
 
 // init patches some existing memory allocation runtime entrypoints
 // - direct objects allocation
