@@ -2,8 +2,11 @@ package gotcha
 
 import (
 	"C"
+	"os"
+	"strconv"
 	"unsafe"
 
+	"github.com/1pkg/golocal"
 	"github.com/1pkg/gomonkey"
 )
 
@@ -33,20 +36,30 @@ func mallocgc(size uintptr, tp *tp, needzero bool) unsafe.Pointer
 // Note that only functions from `mallocgc` family are patched, but runtime has much more allocation tricks
 // that won't be traced by gotcha, like direct `malloc` sys calls, etc.
 func init() {
-	glstore = &lstore{
-		mp:  make(map[int64]Context, 1024),
-		cap: 1024,
+	// set up local store for malloc
+	maxTracers := int64(golocal.DefaultCapacity)
+	if max, err := strconv.ParseInt(os.Getenv("GOTCHA_MAX_TRACERS"), 10, 64); err == nil {
+		maxTracers = max
 	}
+	ls := golocal.LStore(maxTracers)
+	// patch malloc with permanent decorator
 	gomonkey.PermanentDecorate(mallocgc, func(size uintptr, tp *tp, needzero bool) unsafe.Pointer {
-		if ctx := glstore.get(); ctx != nil {
-			// trace allocations for caller tracer goroutine.
-			bytes := int64(size)
-			objs := int64(1)
-			if tp != nil {
-				bytes = int64(tp.size)
-				objs = int64(size) / bytes
+		// unfortunately we can't use local store get here
+		// as it causes `unknown caller pc` stack fatal error.
+		if !ls.Locked() {
+			ls.Lock()
+			gctx, ok := ls.Store[golocal.ID()]
+			ls.Unlock()
+			if ok {
+				// trace allocations for caller tracer goroutine.
+				bytes := int64(size)
+				objs := int64(1)
+				if tp != nil {
+					bytes = int64(tp.size)
+					objs = int64(size) / bytes
+				}
+				(*gotchactx)(unsafe.Pointer(gctx)).Add(bytes, objs, 1)
 			}
-			ctx.Add(bytes, objs, 1)
 		}
 		return nil
 	}, 24, 53, []byte{
