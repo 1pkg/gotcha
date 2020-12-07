@@ -1,40 +1,37 @@
 package gotcha
 
 import (
-	"context"
+	"sync/atomic"
 
 	"github.com/modern-go/gls"
 )
 
-// lskey is not exported key type for gls
-// to not interfire with other gls keys.
-type lskey string
+var glstore *lstore
 
-// glskey is global lskey gls value.
-const glskey lskey = "glskey"
-
-// Tracer defines function type that will be traced by gotcha
-// it accepts gotcha context that will be seamlessly tracking
-// all allocations inside tracer function.
-type Tracer func(Context)
-
-// Trace starts memory tracing for provided tracer function.
-// Note that trace function could be cobined with each other
-// by providing gotcha context to child trace function.
-func Trace(ctx context.Context, t Tracer, opts ...ContextOpt) {
-	gls.WithGls(func() {
-		ctx := NewContext(ctx, opts...)
-		gls.Set(glskey, ctx)
-		t(ctx)
-	})()
+type lstore struct {
+	mp   map[int64]Context
+	cap  int64
+	lock int64
 }
 
-// trackAlloc defines global entrypoint to track
-// allocations for caller tracer goroutine.
-func trackAlloc(bytes, objects int) {
-	if v := gls.Get(glskey); v != nil {
-		if ctx, ok := v.(Tracker); ok {
-			ctx.Add(int64(bytes), int64(objects), 1)
-		}
+func (ls *lstore) get() Context {
+	if i := atomic.LoadInt64(&ls.lock); i == 0 {
+		return ls.mp[gls.GoID()]
 	}
+	return nil
+}
+
+func (ls *lstore) set(ctx Context) {
+	atomic.StoreInt64(&ls.lock, 1)
+	defer atomic.StoreInt64(&ls.lock, 0)
+	if int64(len(ls.mp)) == ls.cap {
+		return
+	}
+	ls.mp[gls.GoID()] = ctx
+}
+
+func (ls *lstore) del() {
+	atomic.StoreInt64(&ls.lock, 1)
+	defer atomic.StoreInt64(&ls.lock, 0)
+	delete(ls.mp, gls.GoID())
 }

@@ -41,6 +41,7 @@ type Context interface {
 // that carries underlying parent `context.Context`.
 type gotchactx struct {
 	parent                   context.Context
+	ptrack                   Tracker
 	bytes, objects, calls    int64
 	lbytes, lobjects, lcalls int64
 }
@@ -56,6 +57,10 @@ type gotchactx struct {
 // which is useful if nested tracking is required.
 func NewContext(parent context.Context, opts ...ContextOpt) Context {
 	ctx := &gotchactx{parent: parent}
+	// need to do type assertion here to avoid allocations in malloc
+	if ptrack, ok := parent.(Tracker); ok {
+		ctx.ptrack = ptrack
+	}
 	opts = append([]ContextOpt{
 		ContextWithLimitBytes(64 * MiB),
 		ContextWithLimitObjects(Infinity),
@@ -131,8 +136,8 @@ func (ctx *gotchactx) Add(bytes, objects, calls int64) {
 	atomic.AddInt64(&ctx.bytes, bytes*objects)
 	atomic.AddInt64(&ctx.objects, objects)
 	atomic.AddInt64(&ctx.calls, calls)
-	if pctx, ok := ctx.parent.(Tracker); ok {
-		pctx.Add(bytes, objects, calls)
+	if ctx.ptrack != nil {
+		ctx.ptrack.Add(bytes, objects, calls)
 	}
 }
 
@@ -155,8 +160,8 @@ func (ctx *gotchactx) Remains() (rbytes, robjects, rcalls int64) {
 	switch {
 	case lbytes <= Infinity:
 		rbytes = Infinity
-		if pctx, ok := ctx.parent.(Tracker); ok {
-			rbytes, _, _ = pctx.Remains()
+		if ctx.ptrack != nil {
+			rbytes, _, _ = ctx.ptrack.Remains()
 		}
 	case lbytes > bytes:
 		rbytes = lbytes - bytes
@@ -169,8 +174,8 @@ func (ctx *gotchactx) Remains() (rbytes, robjects, rcalls int64) {
 	switch {
 	case lobjects <= Infinity:
 		robjects = Infinity
-		if pctx, ok := ctx.parent.(Tracker); ok {
-			_, robjects, _ = pctx.Remains()
+		if ctx.ptrack != nil {
+			_, robjects, _ = ctx.ptrack.Remains()
 		}
 	case lobjects > objects:
 		robjects = lobjects - objects
@@ -183,8 +188,8 @@ func (ctx *gotchactx) Remains() (rbytes, robjects, rcalls int64) {
 	switch {
 	case lcalls <= Infinity:
 		rcalls = Infinity
-		if pctx, ok := ctx.parent.(Tracker); ok {
-			_, _, rcalls = pctx.Remains()
+		if ctx.ptrack != nil {
+			_, _, rcalls = ctx.ptrack.Remains()
 		}
 	case lcalls > calls:
 		rcalls = lcalls - calls
@@ -204,8 +209,8 @@ func (ctx *gotchactx) Exceeded() bool {
 	if l := atomic.LoadInt64(&ctx.lcalls); l > Infinity && l < atomic.LoadInt64(&ctx.calls) {
 		return true
 	}
-	if pctx, ok := ctx.parent.(Tracker); ok {
-		return pctx.Exceeded()
+	if ctx.ptrack != nil {
+		return ctx.ptrack.Exceeded()
 	}
 	return false
 }

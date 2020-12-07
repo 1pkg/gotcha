@@ -1,6 +1,6 @@
-# bou.ke/monkey v1.0.2
+# github.com/1pkg/gomonkey v1.0.5
 ## explicit
-bou.ke/monkey
+github.com/1pkg/gomonkey
 # github.com/davecgh/go-spew v1.1.0
 github.com/davecgh/go-spew/spew
 # github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd

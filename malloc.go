@@ -4,12 +4,13 @@ import (
 	"C"
 	"unsafe"
 
-	"bou.ke/monkey"
+	"github.com/1pkg/gomonkey"
 )
 
 // tp from `runtime._type`
 type tp struct {
-	size uintptr
+	size    uintptr
+	ptrdata uintptr
 }
 
 // chantype from `runtime.chantype`
@@ -97,86 +98,30 @@ func mulUintptr(a, b uintptr) (uintptr, bool) {
 // Note that only functions from `mallocgc` family are patched, but runtime has much more allocation tricks
 // that won't be traced by gotcha, like direct `malloc` sys calls, etc.
 func init() {
-	// mallocgc directly
-	monkey.Patch(newobject, func(tp *tp) unsafe.Pointer {
-		trackAlloc(int(tp.size), 1)
-		return mallocgc(tp.size, tp, true)
-	})
-	monkey.Patch(reflectUnsafeNew, func(tp *tp) unsafe.Pointer {
-		trackAlloc(int(tp.size), 1)
-		return mallocgc(tp.size, tp, true)
-	})
-	monkey.Patch(reflectliteUnsafeNew, func(tp *tp) unsafe.Pointer {
-		trackAlloc(int(tp.size), 1)
-		return mallocgc(tp.size, tp, true)
-	})
-	monkey.Patch(newarray, func(tp *tp, n int) unsafe.Pointer {
-		trackAlloc(int(tp.size), n)
-		if n == 1 {
-			return mallocgc(tp.size, tp, true)
+	glstore = &lstore{
+		mp:  make(map[int64]Context, 1024),
+		cap: 1024,
+	}
+	gomonkey.PermanentDecorate(mallocgc, func(size uintptr, tp *tp, needzero bool) unsafe.Pointer {
+		if ctx := glstore.get(); ctx != nil {
+			// trace allocations for caller tracer goroutine.
+			bytes := int64(size)
+			objs := int64(1)
+			if tp != nil {
+				bytes = int64(tp.size)
+				objs = int64(size) / bytes
+			}
+			ctx.Add(bytes, objs, 1)
 		}
-		mem, overflow := mulUintptr(tp.size, uintptr(n))
-		// note: check for `mem > maxAlloc` is omitted here
-		if overflow || n < 0 {
-			panic("runtime: allocation size out of range")
-		}
-		return mallocgc(mem, tp, true)
-	})
-	// slice allocs
-	var gmakeSlice, gmakeSliceCopy *monkey.PatchGuard
-	gmakeSlice = monkey.Patch(makeslice, func(tp *tp, len, cap int) unsafe.Pointer {
-		gmakeSlice.Unpatch()
-		defer gmakeSlice.Restore()
-		trackAlloc(int(tp.size), cap)
-		return makeslice(tp, len, cap)
-	})
-	gmakeSliceCopy = monkey.Patch(makeslicecopy, func(tp *tp, tolen int, fromlen int, from unsafe.Pointer) unsafe.Pointer {
-		gmakeSliceCopy.Unpatch()
-		defer gmakeSliceCopy.Restore()
-		trackAlloc(int(tp.size), tolen)
-		return makeslicecopy(tp, tolen, fromlen, from)
-	})
-	// var ggrowSlice *monkey.PatchGuard
-	// ggrowSlice = monkey.Patch(growslice, func(tp *tp, old slice, cap int) slice {
-	// 	ggrowSlice.Unpatch()
-	// 	defer ggrowSlice.Restore()
-	// 	trackAlloc(int(tp.size), cap)
-	// 	return growslice(tp, old, cap)
-	// })
-	// chan allocs
-	var gmakeChan *monkey.PatchGuard
-	gmakeChan = monkey.Patch(makechan, func(tp *chantype, size int) *hchan {
-		gmakeChan.Unpatch()
-		defer gmakeChan.Restore()
-		trackAlloc(int(tp.tp.size), size)
-		return makechan(tp, size)
-	})
-	// string allocs
-	// note that we don't patch `runtime.gobytes`
-	// as it seems it's only used by go compiler itself
-	var grawString, grawBytes, grawRunes, gSliceBytesString *monkey.PatchGuard
-	grawString = monkey.Patch(rawstring, func(size int) (string, []byte) {
-		grawString.Unpatch()
-		defer grawString.Restore()
-		trackAlloc(1, size)
-		return rawstring(size)
-	})
-	grawBytes = monkey.Patch(rawbyteslice, func(size int) []byte {
-		grawBytes.Unpatch()
-		defer grawBytes.Restore()
-		trackAlloc(1, size)
-		return rawbyteslice(size)
-	})
-	grawRunes = monkey.Patch(rawruneslice, func(size int) []rune {
-		grawRunes.Unpatch()
-		defer grawRunes.Restore()
-		trackAlloc(1, size)
-		return rawruneslice(size)
-	})
-	gSliceBytesString = monkey.Patch(sliceByteToString, func(buf *tmpBuf, ptr *byte, n int) string {
-		gSliceBytesString.Unpatch()
-		defer gSliceBytesString.Restore()
-		trackAlloc(1, n)
-		return sliceByteToString(buf, ptr, n)
+		return nil
+	}, 24, 53, []byte{
+		0x48, 0x83, 0xec, 0x28, // sub rsp,0x28
+		0x48, 0x8b, 0x44, 0x24, 0x30, // mov rax,QWORD PTR [rsp+0x30]
+		0x48, 0x89, 0x04, 0x24, // mov QWORD PTR [rsp],rax
+		0x48, 0x8b, 0x44, 0x24, 0x38, // mov rax,QWORD PTR [rsp+0x38]
+		0x48, 0x89, 0x44, 0x24, 0x08, // mov QWORD PTR [rsp],rax
+	}, []byte{
+		0x48, 0x83, 0xc4, 0x28, // add rsp,0x28
+		0x48, 0x81, 0xec, 0x98, 0x00, 0x00, 0x00, // sub rsp,0x98
 	})
 }
