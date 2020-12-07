@@ -57,7 +57,7 @@ type gotchactx struct {
 // which is useful if nested tracking is required.
 func NewContext(parent context.Context, opts ...ContextOpt) Context {
 	ctx := &gotchactx{parent: parent}
-	// need to do type assertion here to avoid allocations in malloc
+	// need to do type assertion here to avoid allocations in malloc.
 	if ptrack, ok := parent.(Tracker); ok {
 		ctx.ptrack = ptrack
 	}

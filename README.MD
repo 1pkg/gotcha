@@ -11,7 +11,7 @@
 
 ## Introduction
 
-Gotcha seamlessly patches go runtime to provides a way to track amount of allocated bytes, objects, calls per goroutine.
+Gotcha seamlessly patches go runtime to provides a convenient way to trace amount of allocated bytes, objects, calls per goroutine.
 
 ```go
 package main
@@ -50,24 +50,9 @@ func main() {
 
 ## Internals
 
-Gotcha exposes function `Track` that tracks memory allocations for provided `Tracer` function. All traced allocations are attacehd to the single parameter of this tracer function `Context` object. Gotcha context fully implements `context.Context` interface and could be used to cancel execution if provided limits were exceeded. Gotcha supports nested treacking by providing gotcha context as parent context for derived `Tracer` function then gotcha context `Tracker` methods `Add`, `Remains` and `Exceeded` will also target parent context as well which is useful if nested tracking is required.
-Note that in order to work gotcha uses [bou.ke/monkey](https://github.com/bouk/monkey) and [modern-go/gls](https://github.com/modern-go/gls) packages to patch existing runtime allocator entrypoints and track per goroutine context limts, next entrypoints are patched:
+Gotcha exposes function `Track` that tracks memory allocations for provided `Tracer` function. All traced allocations are attached to the single parameter of this tracer function `Context` object. Gotcha context fully implements `context.Context` interface and could be used to cancel execution if provided limits were exceeded. Gotcha supports nested tracing by providing gotcha context as the parent context for derived `Tracer`; then gotcha tracing context methods will also be targeting parent context as well as derived context.
 
-- direct objects allocation
-- arrays allocation
-- slice allocation
-- map allocation (solved by arrays allocation)
-- chan allocation
-- strings/bytes/runes allocation
-
-This makes gotcha inherits the same list of restrictions as `modern-go/gls` and `bou.ke/monkey` [has](https://github.com/bouk/monkey#notes).
-
-Note that some patches with monkey patch are causing loops, for e.g. `newarray`, `growslice`.
-So for them implementation either slightly changed - newarray or not patched at all - `growslice`.
-For `growslice` it still possible to make the same workaround as done for `newarray`, but it will require to copy and support great amount of code from runtime which is not correlating with the goal of this project, so `growslice` is skipped for now. Note that some function from `interface.conv` family are not patched neither which will cause untracked allocation for code like `vt, ok := var.(type)`.
-Note that `runtime.gobytes` is not patched as well as it seems it's only used by go compiler itself.
-Note that only functions from `mallocgc` family are patched, but runtime has much more allocation tricks
-that won't be traced by gotcha, like direct `malloc` sys calls, etc.
+Note that in order to work gotcha uses [1pkg/gomonkey](https://github.com/1pkg/gomonkey) based on [bou.ke/monkey](https://github.com/bouk/monkey) and [1pkg/golocal](https://github.com/1pkg/golocal) based on [modern-go/gls](https://github.com/modern-go/gls) packages to patch runtime `mallocgc` allocator entrypoint and trace per goroutine context limts. This makes gotcha inherits the same list of restrictions as `modern-go/gls` and `bou.ke/monkey` [has](https://github.com/bouk/monkey#notes).
 
 ## Licence
 

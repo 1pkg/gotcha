@@ -18,23 +18,9 @@ type tp struct {
 //go:linkname mallocgc runtime.mallocgc
 func mallocgc(size uintptr, tp *tp, needzero bool) unsafe.Pointer
 
-// init patches some existing memory allocation runtime entrypoints
-// - direct objects allocation
-// - arrays allocation
-// - slice allocation
-// - map allocation (solved by arrays allocation)
-// - chan allocation
-// - strings/bytes/runes allocation
-// Note that some patches with monkey patch are causing loops, for e.g. `newarray`, `growslice`.
-// So for them implementation either slightly changed - newarray or not patched at all - `growslice`.
-// For `growslice` it still possible to make the same workaround as done for `newarray`,
-// but it will require to copy and support great amount of code from runtime
-// which is not correlating with the goal of this project, so `growslice` is skipped for now.
-// Note that some function from `interface.conv` family are not patched neither which will cause
-// untracked allocation for code like `vt, ok := var.(type)`.
-// Note that `runtime.gobytes` is not patched as well as it seems it's only used by go compiler itself.
-// Note that only functions from `mallocgc` family are patched, but runtime has much more allocation tricks
-// that won't be traced by gotcha, like direct `malloc` sys calls, etc.
+// init patches main mallocgc allocation runtime entrypoint
+// it also sets goroutine local storage tracers capacity from env var
+// note that pacthing will only work on amd64 arch.
 func init() {
 	// set up local store for malloc
 	maxTracers := int64(golocal.DefaultCapacity)

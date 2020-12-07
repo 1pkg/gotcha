@@ -10,12 +10,12 @@ import (
 )
 
 // epsAlloc defines alloc error delta for test
-// as it's tough to carefully track all possible small
+// as it's tough to carefully trace all possible small
 // underlying allocations - defining relative deviation buffer simplifies it
 const epsAlloc = 0.66
 
 func TestTraceTypes(t *testing.T) {
-	t.Run("track no object alloc", func(t *testing.T) {
+	t.Run("trace no object alloc", func(t *testing.T) {
 		Trace(context.Background(), func(ctx Context) {
 			for i := 0; i < 1000; i++ {
 				_ = i - 1
@@ -26,7 +26,7 @@ func TestTraceTypes(t *testing.T) {
 			require.Equal(t, int64(0), c)
 		})
 	})
-	t.Run("track new object alloc", func(t *testing.T) {
+	t.Run("trace new object alloc", func(t *testing.T) {
 		type sobj struct {
 			a, b int64
 		}
@@ -43,7 +43,7 @@ func TestTraceTypes(t *testing.T) {
 			require.GreaterOrEqual(t, c, int64(1000))
 		})
 	})
-	t.Run("track new object alloc &", func(t *testing.T) {
+	t.Run("trace new object alloc &", func(t *testing.T) {
 		type sobj struct {
 			a, b int64
 		}
@@ -60,7 +60,7 @@ func TestTraceTypes(t *testing.T) {
 			require.GreaterOrEqual(t, c, int64(1000))
 		})
 	})
-	t.Run("track new object alloc reflect", func(t *testing.T) {
+	t.Run("trace new object alloc reflect", func(t *testing.T) {
 		type sobj struct {
 			a, b int64
 		}
@@ -79,7 +79,7 @@ func TestTraceTypes(t *testing.T) {
 			require.GreaterOrEqual(t, c, int64(100))
 		})
 	})
-	t.Run("track make slice alloc", func(t *testing.T) {
+	t.Run("trace make slice alloc", func(t *testing.T) {
 		Trace(context.Background(), func(ctx Context) {
 			var v []int64
 			for i := 0; i < 1000; i++ {
@@ -92,7 +92,7 @@ func TestTraceTypes(t *testing.T) {
 			require.GreaterOrEqual(t, c, int64(1000))
 		})
 	})
-	t.Run("track make slice copy alloc", func(t *testing.T) {
+	t.Run("trace make slice copy alloc", func(t *testing.T) {
 		Trace(context.Background(), func(ctx Context) {
 			var v []int64
 			vc := []int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
@@ -107,7 +107,7 @@ func TestTraceTypes(t *testing.T) {
 			require.GreaterOrEqual(t, c, int64(1000))
 		})
 	})
-	t.Run("track make slice append alloc", func(t *testing.T) {
+	t.Run("trace make slice append alloc", func(t *testing.T) {
 		Trace(context.Background(), func(ctx Context) {
 			var v []int64
 			for i := 0; i < 1000; i++ {
@@ -121,7 +121,7 @@ func TestTraceTypes(t *testing.T) {
 			require.GreaterOrEqual(t, c, int64(2000))
 		})
 	})
-	t.Run("track make map alloc", func(t *testing.T) {
+	t.Run("trace make map alloc", func(t *testing.T) {
 		Trace(context.Background(), func(ctx Context) {
 			var v map[string]int32
 			for i := 0; i < 100; i++ {
@@ -134,7 +134,7 @@ func TestTraceTypes(t *testing.T) {
 			require.GreaterOrEqual(t, c, int64(100))
 		})
 	})
-	t.Run("track make chan alloc", func(t *testing.T) {
+	t.Run("trace make chan alloc", func(t *testing.T) {
 		Trace(context.Background(), func(ctx Context) {
 			var v chan [12]byte
 			for i := 0; i < 100; i++ {
@@ -147,7 +147,7 @@ func TestTraceTypes(t *testing.T) {
 			require.GreaterOrEqual(t, c, int64(100))
 		})
 	})
-	t.Run("track string bytes alloc", func(t *testing.T) {
+	t.Run("trace string bytes alloc", func(t *testing.T) {
 		Trace(context.Background(), func(ctx Context) {
 			cs := "foo | | bar"
 			var v []byte
@@ -161,7 +161,7 @@ func TestTraceTypes(t *testing.T) {
 			require.GreaterOrEqual(t, c, int64(1000))
 		})
 	})
-	t.Run("track string runes alloc", func(t *testing.T) {
+	t.Run("trace string runes alloc", func(t *testing.T) {
 		Trace(context.Background(), func(ctx Context) {
 			cs := "foo | | bar"
 			var v []rune
@@ -175,7 +175,7 @@ func TestTraceTypes(t *testing.T) {
 			require.GreaterOrEqual(t, c, int64(1000))
 		})
 	})
-	t.Run("track bytes string alloc", func(t *testing.T) {
+	t.Run("trace bytes string alloc", func(t *testing.T) {
 		Trace(context.Background(), func(ctx Context) {
 			cb := []byte("foo | | bar")
 			var v string
@@ -189,7 +189,7 @@ func TestTraceTypes(t *testing.T) {
 			require.GreaterOrEqual(t, c, int64(1000))
 		})
 	})
-	t.Run("track new object alloc complex", func(t *testing.T) {
+	t.Run("trace new object alloc complex", func(t *testing.T) {
 		type cobj struct {
 			mp   map[string][]string
 			self *cobj
