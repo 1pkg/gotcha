@@ -2,12 +2,15 @@
 
 [![lint](https://github.com/1pkg/gotcha/workflows/lint/badge.svg)](https://github.com/1pkg/gotcha/actions?query=workflow%3Alint+branch%3Amaster+)
 [![test](https://github.com/1pkg/gotcha/workflows/test/badge.svg)](https://github.com/1pkg/gotcha/actions?query=workflow%3Atest+branch%3Amaster+)
-[![report](https://goreportcard.com/badge/github.com/1pkg/gotcha)](https://goreportcard.com/report/github.com/1pkg/gotcha)
+[![report](https://goreportcard.com/badge/github.com/1pkg/gotcha?nocache=1)](https://goreportcard.com/report/github.com/1pkg/gotcha?nocache=1)
 [![version](https://img.shields.io/github/go-mod/go-version/1pkg/gotcha)](https://github.com/1pkg/gotcha/blob/master/go.mod)
 [![license](https://img.shields.io/github/license/1pkg/gotcha)](LICENSE)
 [![godoc](https://img.shields.io/badge/godoc-godoc-green)](https://pkg.go.dev/github.com/1pkg/gotcha?tab=doc)
 
 `go get -u github.com/1pkg/gotcha`
+
+[original blog post article](https://1pkg.github.io/posts/lets_trace_goroutine_allocated_memory/)  
+[medium mirror article](https://1pkg.github.io/posts/lets_trace_goroutine_allocated_memory/)
 
 ## Introduction
 
