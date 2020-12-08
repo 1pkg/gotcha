@@ -30,22 +30,20 @@ func init() {
 	ls := golocal.LStore(maxTracers)
 	// patch malloc with permanent decorator
 	gomonkey.PermanentDecorate(mallocgc, func(size uintptr, tp *tp, needzero bool) unsafe.Pointer {
-		// unfortunately we can't use local store get here
+		// unfortunately we can't use local store direct calls here
 		// as it causes `unknown caller pc` stack fatal error.
-		if !ls.Locked() {
-			ls.Lock()
-			gctx, ok := ls.Store[golocal.ID()]
-			ls.Unlock()
-			if ok {
-				// trace allocations for caller tracer goroutine.
-				bytes := int64(size)
-				objs := int64(1)
-				if tp != nil {
-					bytes = int64(tp.size)
-					objs = int64(size) / bytes
-				}
-				(*gotchactx)(unsafe.Pointer(gctx)).Add(bytes, objs, 1)
+		id := ls.RLock()
+		gctxPtr, ok := ls.Store[id]
+		ls.RUnlock()
+		if ok {
+			// trace allocations for caller tracer goroutine.
+			bytes := int64(size)
+			objs := int64(1)
+			if tp != nil {
+				bytes = int64(tp.size)
+				objs = int64(size) / bytes
 			}
+			(*gotchactx)(unsafe.Pointer(gctxPtr)).Add(bytes, objs, 1)
 		}
 		return nil
 	}, 24, 53, []byte{
