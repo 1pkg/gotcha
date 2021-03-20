@@ -9,8 +9,7 @@
 
 `go get -u github.com/1pkg/gotcha`
 
-[original blog post article](https://1pkg.github.io/posts/lets_trace_goroutine_allocated_memory/)  
-[medium mirror article](https://1pkg.medium.com/lets-trace-goroutine-allocated-memory-hacking-go-runtime-910bf4b04ca0)
+[blog post article](https://1pkg.github.io/posts/lets_trace_goroutine_allocated_memory/)
 
 ## Introduction
 
